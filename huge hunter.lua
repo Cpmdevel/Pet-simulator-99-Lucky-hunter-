@@ -1,0 +1,238 @@
+--[[
+    Huge Hunter Script - Pet Simulator 99 (RNG Part 2)
+    Features: Auto hatch RNG egg (Titanic/Huge drops), auto lucky boosts, auto collect, auto farm
+    Works with: Delta Executor, Solara, Wave, Xeno, Arceus X
+    Last updated: May 23, 2026
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- GUI Setup
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "HugeHunterGUI"
+screenGui.Parent = game:GetService("CoreGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 260, 0, 200)
+frame.Position = UDim2.new(0.5, -130, 0.5, -100)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+frame.BorderSizePixel = 0
+frame.BackgroundTransparency = 0.15
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = frame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 35)
+title.BackgroundTransparency = 1
+title.Text = "🐾 HUGE HUNTER (RNG PART 2) 🐾"
+title.TextColor3 = Color3.fromRGB(255, 200, 100)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.Parent = frame
+
+local toggle = Instance.new("TextButton")
+toggle.Size = UDim2.new(0, 200, 0, 40)
+toggle.Position = UDim2.new(0.5, -100, 0, 50)
+toggle.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+toggle.Text = "🔴 START HUNTING"
+toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggle.Font = Enum.Font.GothamBold
+toggle.TextSize = 14
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0, 6)
+toggleCorner.Parent = toggle
+toggle.Parent = frame
+
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1, 0, 0, 30)
+status.Position = UDim2.new(0, 0, 0, 100)
+status.BackgroundTransparency = 1
+status.Text = "⚙️ Idle - Click Start"
+status.TextColor3 = Color3.fromRGB(200, 200, 200)
+status.TextSize = 11
+status.Font = Enum.Font.Gotham
+status.Parent = frame
+
+local info = Instance.new("TextLabel")
+info.Size = UDim2.new(1, 0, 0, 40)
+info.Position = UDim2.new(0, 0, 0, 140)
+info.BackgroundTransparency = 1
+info.Text = "Target: RNG Egg (Titanic/Huge)\nAuto boosts, gifts, farm"
+info.TextColor3 = Color3.fromRGB(150, 150, 150)
+info.TextSize = 10
+info.Font = Enum.Font.Gotham
+info.Parent = frame
+
+local active = false
+
+-- Helper: find closest object by name pattern
+local function findClosest(patterns)
+    local target, minDist = nil, math.huge
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj:IsDescendantOf(workspace) then
+            for _, pattern in ipairs(patterns) do
+                if obj.Name:find(pattern) then
+                    local mag = (obj.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                    if mag < minDist then
+                        minDist = mag
+                        target = obj
+                    end
+                    break
+                end
+            end
+        end
+    end
+    return target
+end
+
+-- Auto teleport to RNG egg if too far
+local function teleportToEgg()
+    local egg = findClosest({"RNG_Egg", "EventEgg", "MythicalEgg", "RNGPart2"})
+    if egg and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        if (egg.Position - hrp.Position).Magnitude > 30 then
+            hrp.CFrame = CFrame.new(egg.Position)
+            task.wait(0.3)
+        end
+    end
+end
+
+-- Auto hatch RNG egg (instant)
+local function autoHatchRNG()
+    while active do
+        task.wait(1.5)
+        teleportToEgg()
+        local egg = findClosest({"RNG_Egg", "EventEgg", "MythicalEgg", "RNGPart2"})
+        if egg and LocalPlayer.Character then
+            -- Try instant hatch remote
+            local hatchRemote = ReplicatedStorage:FindFirstChild("HatchEgg") 
+                or ReplicatedStorage:FindFirstChild("OpenEgg")
+                or ReplicatedStorage:FindFirstChild("RemoteHatch")
+            if hatchRemote then
+                hatchRemote:FireServer(egg, "Instant")
+                status.Text = "🥚 Hatching RNG egg..."
+            end
+        end
+        task.wait(0.5)
+    end
+end
+
+-- Auto collect lucky blocks / chests
+local function autoCollectLuck()
+    while active do
+        task.wait(0.2)
+        local luckyObj = findClosest({"LuckyBlock", "Lucky Chest", "GoldenChest", "MysteryBox", "EventChest"})
+        if luckyObj and LocalPlayer.Character then
+            local hrp = LocalPlayer.Character.HumanoidRootPart
+            if (luckyObj.Position - hrp.Position).Magnitude > 5 then
+                hrp.CFrame = CFrame.new(luckyObj.Position)
+            end
+            task.wait(0.05)
+            local collectRemote = ReplicatedStorage:FindFirstChild("ClickToCollect") 
+                or ReplicatedStorage:FindFirstChild("Interact")
+                or ReplicatedStorage:FindFirstChild("Collect")
+            if collectRemote then
+                collectRemote:FireServer(luckyObj)
+            end
+        end
+    end
+end
+
+-- Auto use lucky boosts (potions, fruits, flags)
+local function useLuckyBoosts()
+    while active do
+        task.wait(25)
+        for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
+            local name = item.Name:lower()
+            if name:find("lucky") or name:find("boost") or name:find("potion") or name:find("fruit") or name:find("flag") then
+                local useRemote = ReplicatedStorage:FindFirstChild("UseItem") 
+                    or ReplicatedStorage:FindFirstChild("ConsumeItem")
+                if useRemote then
+                    useRemote:FireServer(item)
+                    status.Text = "✨ Used " .. item.Name
+                    task.wait(0.5)
+                end
+            end
+        end
+    end
+end
+
+-- Auto open gift bags & crates
+local function openGifts()
+    while active do
+        task.wait(4)
+        for _, bag in pairs(LocalPlayer.Backpack:GetChildren()) do
+            local name = bag.Name:lower()
+            if name:find("gift") or name:find("bag") or name:find("crate") or name:find("chest") then
+                local openRemote = ReplicatedStorage:FindFirstChild("OpenGift") 
+                    or ReplicatedStorage:FindFirstChild("OpenCrate")
+                if openRemote then
+                    openRemote:FireServer(bag)
+                    status.Text = "📦 Opened " .. bag.Name
+                    task.wait(0.3)
+                end
+            end
+        end
+    end
+end
+
+-- Auto farm breakables near egg (to increase luck streak)
+local function autoFarmBreakables()
+    while active do
+        task.wait(0.3)
+        local breakable = findClosest({"Breakable", "Crate", "Barrel", "Present", "CoinJar"})
+        if breakable and LocalPlayer.Character then
+            local hrp = LocalPlayer.Character.HumanoidRootPart
+            if (breakable.Position - hrp.Position).Magnitude > 8 then
+                hrp.CFrame = CFrame.new(breakable.Position)
+            end
+            task.wait(0.05)
+            -- Simulate click to break
+            local clickRemote = ReplicatedStorage:FindFirstChild("BreakObject") 
+                or ReplicatedStorage:FindFirstChild("DamageObject")
+            if clickRemote then
+                clickRemote:FireServer(breakable)
+            end
+        end
+    end
+end
+
+-- Start all loops
+local function startHunting()
+    if active then return end
+    active = true
+    status.Text = "🟢 HUNTING ACTIVE (Titanic/Huge target)"
+    toggle.Text = "🔴 STOP HUNTING"
+    toggle.BackgroundColor3 = Color3.fromRGB(180, 70, 70)
+    
+    task.spawn(autoHatchRNG)
+    task.spawn(autoCollectLuck)
+    task.spawn(useLuckyBoosts)
+    task.spawn(openGifts)
+    task.spawn(autoFarmBreakables)
+end
+
+local function stopHunting()
+    active = false
+    status.Text = "🔴 Stopped - Click Start"
+    toggle.Text = "🟢 START HUNTING"
+    toggle.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+end
+
+toggle.MouseButton1Click:Connect(function()
+    if active then stopHunting() else startHunting() end
+end)
+
+-- Wait for character
+repeat task.wait() until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+status.Text = "✅ Ready! Go to RNG event area"
+task.wait(2)
+status.Text = "⚙️ Idle - Click Start"
